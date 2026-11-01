@@ -83,6 +83,24 @@ jobs:
             echo "Создана временная структура сжатых файлов для сборщика Docker."
           fi
 
+      - name: Test Nginx compressed responses
+        run: |
+          set -euo pipefail
+          docker build -t platformer-compressed:ci .
+          docker run -d -p 8080:80 --name lab3-nginx platformer-compressed:ci
+          trap 'docker rm -f lab3-nginx' EXIT
+          docker exec lab3-nginx nginx -t
+          curl --retry 10 --retry-connrefused --retry-delay 1 -fsS http://localhost:8080/ > /dev/null
+          for entry in 'game.framework.js.gz application/javascript' 'game.wasm.gz application/wasm' 'game.data.gz application/octet-stream'; do
+            read -r file mime <<< "$entry"
+            curl -fsS -D headers.txt "http://localhost:8080/Build/$file" -o response.gz
+            cat headers.txt
+            grep -qi '^Content-Encoding: gzip' headers.txt
+            grep -qi "^Content-Type: $mime" headers.txt
+            gzip -t response.gz
+          done
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/Build/missing.wasm.gz)" = 404
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
