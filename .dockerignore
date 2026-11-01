@@ -1,0 +1,7 @@
+# В контекст Docker входят только конфигурация и готовая игра.
+**
+!Dockerfile
+!nginx.conf
+!Builds/
+!Builds/WebGL/
+!Builds/WebGL/**
