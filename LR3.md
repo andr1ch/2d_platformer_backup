@@ -22,22 +22,24 @@
 
 Шаг 4: Локальное тестирование контейнера
 
-Локальная проверка пока заблокирована: Docker Desktop завершается с ошибкой служебного сокета docker-secrets-engine/engine.sock. Успешный запуск контейнера и заголовки браузера пока не подтверждены.
+Собран локальный образ platformer-compressed:v1 с настоящей WebGL-игрой. Контейнер unity_compressed_container запущен с пробросом порта 8080:80, игра успешно загрузилась в браузере по адресу http://localhost:8080.
 
-![](Screenshots/LR3/04-docker-error.jpg)
+В Firefox DevTools → Сеть выбран файл WebGL.wasm.gz. Подтверждены статус 200 OK и заголовки ответа Content-Encoding: gzip, Content-Type: application/wasm. Передано 12,04 МБ при размере распакованного WebAssembly 48,52 МБ. [Заголовки локального Nginx](Evidence/LR3/local-http-headers.txt).
+
+![](Screenshots/LR3/04-local-devtools.png)
 
 Та же конфигурация проверена в настоящем Docker-контейнере на GitHub Actions с облачными Gzip-заглушками. Успешно выполнены nginx -t, проверка Content-Type и Content-Encoding для трех типов архивов, gzip -t и проверка ответа 404 для отсутствующего архива. [Фактические заголовки из CI](Evidence/LR3/nginx-ci-check.txt).
 
 ![](Screenshots/LR3/04-ci-headers.png)
 
-Команды после восстановления Docker Desktop:
+Команды локальной сборки и запуска:
 
 ```powershell
 docker build -t platformer-compressed:v1 .
 docker run -d -p 8080:80 --name unity_compressed_container platformer-compressed:v1
 ```
 
-Открыть http://localhost:8080, затем F12 → Network → WebGL.wasm.gz → Headers. Проверить Content-Encoding: gzip и Content-Type: application/wasm.
+После проверки тестовый контейнер остановлен и удален:
 
 ```powershell
 docker stop unity_compressed_container
@@ -54,7 +56,7 @@ docker rm unity_compressed_container
 
 Шаг 6: Отправка изменений в GitHub
 
-Файлы отправлены в main репозитория [andr1ch/ARPO_LAB1](https://github.com/andr1ch/ARPO_LAB1). Образ опубликован с тегами ghcr.io/andr1ch/platformer-game:latest и ghcr.io/andr1ch/platformer-game:d837f50430d789b2e946a98dd4bead081e7b0275.
+Файлы отправлены в main репозитория [andr1ch/ARPO_LAB1](https://github.com/andr1ch/ARPO_LAB1). В проверенном запуске образ опубликован с тегами ghcr.io/andr1ch/platformer-game:latest и ghcr.io/andr1ch/platformer-game:bd5af1ee099dfd342cbf2e273a6862cd192e438a.
 
 ![](Screenshots/LR3/06-push.png)
 
@@ -62,15 +64,11 @@ docker rm unity_compressed_container
 
 Отчеты первых двух лабораторных перенесены из README.md в LR1.md и LR2.md с сохранением скриншотов. В README.md добавлена таблица ссылок на три работы.
 
-В [проверенном запуске Actions](https://github.com/andr1ch/ARPO_LAB1/actions/runs/41343136019) задачи sanity_check и build_docker_image завершились успешно. Проверки Nginx и публикация образа выполнены в [Docker-задаче](https://github.com/andr1ch/ARPO_LAB1/actions/runs/41343136019/job/124957254018).
+В [проверенном запуске Actions](https://github.com/andr1ch/ARPO_LAB1/actions/runs/41344578516) все три задачи — sanity_check, mirror_repo и build_docker_image — завершились успешно. Общий статус Success. Проверки Nginx и публикация образа выполнены в [Docker-задаче](https://github.com/andr1ch/ARPO_LAB1/actions/runs/41344578516/job/124961606104). [Результаты всех задач](Evidence/LR3/actions-check.json).
 
-![](Screenshots/LR3/07-docker-job.png)
+![](Screenshots/LR3/07-actions-success.png)
 
-Общий статус запуска остается Failure из-за задачи mirror_repo из ЛР №2: GitHub отклоняет прежний BACKUP_TOKEN с ошибкой Invalid username or token. Для полностью зеленого пайплайна нужно обновить этот секрет. [Результаты всех задач](Evidence/LR3/actions-check.json).
-
-![](Screenshots/LR3/07-actions.png)
-
-Для завершения всех пунктов методички остаются восстановление локального Docker Desktop, проверка настоящей игры в браузере со скриншотом DevTools и повторный запуск пайплайна после обновления BACKUP_TOKEN. Ссылку на репозиторий в Google Classroom отправляет студент.
+Локальный запуск настоящей игры, раздача Gzip-архивов и облачный пайплайн проверены. Ссылку на репозиторий в Google Classroom отправляет студент.
 
 Контрольные вопросы
 
