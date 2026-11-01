@@ -1,0 +1,27 @@
+{
+  "compression": "Gzip",
+  "decompression_fallback": false,
+  "files": [
+    {
+      "file": "WebGL.data.gz",
+      "gzip_bytes": 8226128,
+      "uncompressed_bytes": 15834562,
+      "sha256": "4816d6ed28687b99e22730faa60f2a63ce697cac5e684babf60eba9eb11fc685",
+      "gzip_valid": true
+    },
+    {
+      "file": "WebGL.framework.js.gz",
+      "gzip_bytes": 88164,
+      "uncompressed_bytes": 454639,
+      "sha256": "7d86b3f412d01929ddd9e864fe8794014d949e7b41bbff7b46507930418afb3c",
+      "gzip_valid": true
+    },
+    {
+      "file": "WebGL.wasm.gz",
+      "gzip_bytes": 12038513,
+      "uncompressed_bytes": 48523898,
+      "sha256": "57c9a1a6a1800905062cfdf7b139811c1cbf372cff493601dce57d2398ebfc9a",
+      "gzip_valid": true
+    }
+  ]
+}
