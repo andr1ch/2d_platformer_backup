@@ -1,19 +1,16 @@
-# Название всего автоматического процесса
 name: Unity 2D Platformer CI/CD
 
-# Условие запуска: реагировать на любой push в главную ветку master
 on:
   workflow_dispatch:
   push:
     branches: [ "main" ]
 
 jobs:
-  # ЗАДАЧА 1: Быстрая диагностика структуры проекта (Sanity Check)
   sanity_check:
-    runs-on: ubuntu-latest # Запуск на бесплатном облачном сервере Linux
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4 # Скачиваем код проекта на облачный сервер
+        uses: actions/checkout@v4
 
       - name: Check Unity Directories
         run: |
@@ -24,20 +21,80 @@ jobs:
       - name: Locate 2D Platformer Scripts
         run: |
           echo "=== Поиск C# скриптов в папке Assets ==="
-          find Assets/ -name "Controller.cs" -print
+          find Assets/ -name "*Controller.cs" -print
           find Assets/ -name "BuildManager.cs" -print
 
-  # ЗАДАЧА 2: Автоматическое зеркалирование в резервный репозиторий
+  run_tests:
+    needs: sanity_check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Check Unity secrets
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          for secret in UNITY_LICENSE UNITY_EMAIL UNITY_PASSWORD; do
+            if [ -z "${!secret}" ]; then
+              echo "::error::Repository secret $secret is not configured."
+              exit 1
+            fi
+          done
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ runner.os }}-6000.3.10f1-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'Assets/**/*.asmdef') }}
+          restore-keys: |
+            Library-${{ runner.os }}-6000.3.10f1-
+
+      - name: Install GameCI CLI
+        run: |
+          curl --fail --location --retry 3 \
+            https://github.com/game-ci/cli/releases/download/v0.1.72/game-ci-linux-x64.tar.gz \
+            --output "$RUNNER_TEMP/game-ci.tar.gz"
+          tar xzf "$RUNNER_TEMP/game-ci.tar.gz" -C "$RUNNER_TEMP" ./game-ci
+          chmod +x "$RUNNER_TEMP/game-ci"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Run Unity Tests
+        run: |
+          game-ci test --docker --dockerShmSize=1025m \
+            --engine=unity --testPlatforms='playmode;editmode;COMBINE_RESULTS' \
+            --engineVersion=6000.3.10f1 --coverageEnabled=false \
+            --artifactsPath=artifacts --dockerIsolationMode=default \
+            --containerRegistryRepository=unityci/editor \
+            --containerRegistryImageVersion=3
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: artifacts/
+          if-no-files-found: warn
+
   mirror_repo:
-    needs: sanity_check # Начнется только после того, как успешно пройдет первая задача
-    if: github.repository == 'andr1ch/ARPO_LAB1' # Только в оригинальном репо, чтобы избежать цикла в backup
+    needs: run_tests
+    if: github.repository == 'andr1ch/ARPO_LAB1'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout full history
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Скачиваем полную историю коммитов для корректного зеркалирования
-          persist-credentials: false # Отключаем credential helper - чтобы GITHUB_TOKEN не перекрывал PAT
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Verify token is set
         env:
@@ -58,9 +115,8 @@ jobs:
           git push --force https://x-access-token:${BACKUP_TOKEN}@github.com/andr1ch/2d_platformer_backup.git HEAD:main
           echo "== Код успешно продублирован =="
 
-  # ЗАДАЧА 3: Сборка и публикация контейнера в GHCR (ЛР №3)
   build_docker_image:
-    needs: sanity_check
+    needs: run_tests
     if: github.repository == 'andr1ch/ARPO_LAB1'
     runs-on: ubuntu-latest
     permissions:
@@ -71,8 +127,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create Compressed Placeholders for Docker
-        # Настоящая облачная сборка Unity будет подключена в следующих ЛР.
-        # Здесь проверяется доставка образа; заглушки не являются игрой.
         run: |
           mkdir -p Builds/WebGL/Build
           if [ -z "$(ls -A Builds/WebGL/Build)" ]; then

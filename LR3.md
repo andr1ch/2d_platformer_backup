@@ -8,9 +8,13 @@
 
 В [nginx.conf](nginx.conf) добавлены Content-Encoding: gzip и нужные Content-Type для JavaScript, WebAssembly и данных игры.
 
+![](Screenshots/LR3/02-nginx-code.jpg)
+
 Шаг 3: Создание Dockerfile
 
 В [Dockerfile](Dockerfile) использован nginx:alpine. Конфигурация Nginx заменена, сборка игры скопирована в /usr/share/nginx/html/.
+
+![](Screenshots/LR3/03-dockerfile-code.jpg)
 
 Шаг 4: Локальная проверка
 
@@ -23,23 +27,16 @@ docker run -d -p 8080:80 --name unity_compressed_container platformer-compressed
 
 ![](Screenshots/LR3/04-local-devtools.png)
 
-Шаг 5: Обновление GitHub Actions
+Шаг 5: Настройка пайплайна
 
-В [пайплайн](.github/workflows/main.yaml) добавлена задача build_docker_image: проверка Nginx и сборка образа с публикацией в GHCR. В облаке используются временные Gzip-заглушки, как предусмотрено методичкой.
+В [пайплайн](.github/workflows/main.yaml) добавлена задача build_docker_image: проверка Nginx и сборка образа с публикацией в GHCR. В облаке используются временные Gzip-заглушки.
 
 Шаг 6: Публикация образа
 
-Изменения отправлены в GitHub. Образ ghcr.io/andr1ch/platformer-game опубликован с тегами latest и SHA коммита.
+Образ ghcr.io/andr1ch/platformer-game опубликован с тегами latest и SHA коммита.
 
 Шаг 7: Проверка результатов
 
-[Все три задачи завершились успешно](https://github.com/andr1ch/ARPO_LAB1/actions/runs/41344578516): sanity_check, mirror_repo и build_docker_image.
+Все три задачи завершились успешно: sanity_check, mirror_repo и build_docker_image.
 
 ![](Screenshots/LR3/07-actions-success.png)
-
-Контрольные вопросы
-
-1. Content-Encoding: gzip указывает браузеру распаковать ответ сервера.
-2. Заглушки позволяют собрать Docker-образ в CI до подключения облачной сборки Unity.
-3. Файлы игры размещаются в /usr/share/nginx/html/.
-4. latest обозначает последнюю версию, SHA фиксирует конкретную сборку для отката.
