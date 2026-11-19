@@ -15,6 +15,9 @@ public static class BuildManager
     {
         Debug.Log("[CI/CD] Запущен автоматический процесс сборки WebGL...");
 
+        PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
+        PlayerSettings.WebGL.decompressionFallback = true;
+
         // 1. Получаем список сцен, включённых в настройки проекта (Build Settings)
         string[] levels = GetScenes();
 

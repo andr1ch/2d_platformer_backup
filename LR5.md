@@ -4,7 +4,9 @@
 
 ## Шаг 1. Настройка WebGL
 
-В [ProjectSettings.asset](ProjectSettings/ProjectSettings.asset) включены Gzip (`webGLCompressionFormat: 0`) и Decompression Fallback (`webGLDecompressionFallback: 1`). Fallback нужен для GitHub Pages, где нельзя настроить заголовок `Content-Encoding` для файлов игры.
+В [ProjectSettings.asset](ProjectSettings/ProjectSettings.asset) включены Gzip (`webGLCompressionFormat: 1`) и Decompression Fallback (`webGLDecompressionFallback: 1`). Эти же параметры явно задаёт `BuildManager.BuildWebGL`. Fallback нужен для GitHub Pages, где нельзя настроить заголовок `Content-Encoding` для файлов игры.
+
+В методичке есть опечатка: значение `0` соответствует Brotli, а Gzip — значению `1`. Это подтверждает [исходный код Unity](https://github.com/Unity-Technologies/UnityCsReference/blob/master/Editor/Mono/PlayerSettingsWebGL.bindings.cs). В работе выбран требуемый Gzip.
 
 В Unity 6 при включённом fallback сжатые файлы получают расширение `.unityweb`, а не `.gz`. Поэтому [Nginx](nginx.conf) поддерживает оба расширения: JavaScript получает `application/javascript`, WebAssembly — `application/wasm`, данные — `application/octet-stream`; для всех трёх типов добавляется `Content-Encoding: gzip`.
 
