@@ -5,6 +5,13 @@ on:
   push:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: unity-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   sanity_check:
     runs-on: ubuntu-latest
@@ -85,6 +92,54 @@ jobs:
           path: artifacts/
           if-no-files-found: warn
 
+  build_game:
+    needs: run_tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache WebGL Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-WebGL-${{ runner.os }}-6000.3.10f1-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/**', 'Assets/**/*.cs', 'Assets/**/*.asmdef') }}
+          restore-keys: |
+            Library-WebGL-${{ runner.os }}-6000.3.10f1-
+
+      - name: Build WebGL Player
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: WebGL
+          buildMethod: BuildManager.BuildWebGL
+          unityVersion: 6000.3.10f1
+
+      - name: Verify WebGL build
+        run: |
+          set -euo pipefail
+          test -s Builds/WebGL/index.html
+          test -n "$(find Builds/WebGL/Build -name '*.loader.js' -size +0c -print -quit)"
+          for extension in framework.js wasm data; do
+            file=$(find Builds/WebGL/Build -name "*.$extension.unityweb" -size +0c -print -quit)
+            test -n "$file"
+            gzip -t "$file"
+          done
+          du -sh Builds/WebGL
+
+      - name: Upload WebGL Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebGL-Build
+          path: Builds/WebGL
+          if-no-files-found: error
+
   mirror_repo:
     needs: run_tests
     if: github.repository == 'andr1ch/ARPO_LAB1'
@@ -116,7 +171,7 @@ jobs:
           echo "== Код успешно продублирован =="
 
   build_docker_image:
-    needs: run_tests
+    needs: build_game
     if: github.repository == 'andr1ch/ARPO_LAB1'
     runs-on: ubuntu-latest
     permissions:
@@ -126,34 +181,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create Compressed Placeholders for Docker
-        run: |
-          mkdir -p Builds/WebGL/Build
-          if [ -z "$(ls -A Builds/WebGL/Build)" ]; then
-            echo '<h3>Unity 6 Compressed Game Cloud Layer</h3><p>Lab 3: delivery placeholder; Unity build is not connected yet.</p>' > Builds/WebGL/index.html
-            printf '// Lab 3 placeholder\n' | gzip -n > Builds/WebGL/Build/game.framework.js.gz
-            printf '\000asm\001\000\000\000' | gzip -n > Builds/WebGL/Build/game.wasm.gz
-            printf 'Lab 3 placeholder\n' | gzip -n > Builds/WebGL/Build/game.data.gz
-            echo "Создана временная структура сжатых файлов для сборщика Docker."
-          fi
+      - name: Download WebGL Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: WebGL-Build
+          path: Builds/WebGL
 
       - name: Test Nginx compressed responses
         run: |
           set -euo pipefail
           docker build -t platformer-compressed:ci .
-          docker run -d -p 8080:80 --name lab3-nginx platformer-compressed:ci
-          trap 'docker rm -f lab3-nginx' EXIT
-          docker exec lab3-nginx nginx -t
+          docker run -d -p 8080:80 --name lab5-nginx platformer-compressed:ci
+          trap 'docker rm -f lab5-nginx' EXIT
+          docker exec lab5-nginx nginx -t
           curl --retry 10 --retry-connrefused --retry-delay 1 -fsS http://localhost:8080/ > /dev/null
-          for entry in 'game.framework.js.gz application/javascript' 'game.wasm.gz application/wasm' 'game.data.gz application/octet-stream'; do
-            read -r file mime <<< "$entry"
+          for extension in framework.js wasm data; do
+            file=$(basename "$(find Builds/WebGL/Build -name "*.$extension.unityweb" -print -quit)")
+            case "$extension" in
+              framework.js) mime=application/javascript ;;
+              wasm) mime=application/wasm ;;
+              data) mime=application/octet-stream ;;
+            esac
             curl -fsS -D headers.txt "http://localhost:8080/Build/$file" -o response.gz
             cat headers.txt
             grep -qi '^Content-Encoding: gzip' headers.txt
             grep -qi "^Content-Type: $mime" headers.txt
             gzip -t response.gz
           done
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/Build/missing.wasm.gz)" = 404
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/Build/missing.wasm.unityweb)" = 404
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -174,3 +229,25 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/andr1ch/ARPO_LAB1
             org.opencontainers.image.revision=${{ github.sha }}
+
+  deploy_to_pages:
+    needs: build_game
+    if: github.repository == 'andr1ch/ARPO_LAB1'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download WebGL Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: WebGL-Build
+          path: Builds/WebGL
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: Builds/WebGL
+          branch: gh-pages
