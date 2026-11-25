@@ -32,7 +32,59 @@ Docker-задача проверяет конфигурацию Nginx, дост�
 
 ## Шаг 4. Проверка результата
 
-Результаты облачного запуска и скриншоты будут добавлены после завершения проверки.
+Проверка `actionlint` пройдена. В GitHub Actions прошли все тесты из ЛР №4: EditMode — 1/1, PlayMode — 2/2.
+
+Локальный вызов `BuildManager.BuildWebGL` завершился успешно. Повторная сборка с прогретым кэшем заняла 17,03 секунды по отчёту Unity, размер — 20 423 087 байт. Все три файла `.unityweb` распакованы как Gzip; распакованный `.wasm` содержит сигнатуру WebAssembly.
+
+```powershell
+docker build -t platformer-lr5:local .
+docker run -d -p 8080:80 --name arpo-lr5-local platformer-lr5:local
+```
+
+В контейнере прошёл `nginx -t`. Страница и три файла сборки вернули HTTP 200. Для JavaScript, WebAssembly и данных проверены соответствующие `Content-Type` и `Content-Encoding: gzip`. Отсутствующий файл возвращает 404.
+
+В браузере на `http://localhost:8080/` проверены движение стрелками, прыжок пробелом и сбор кристалла. Ошибок в консоли нет.
+
+![Прыжок персонажа в локальном Docker-контейнере](Screenshots/LR5/02-local-jump.png)
+
+## Шаг 5. Облачная публикация
+
+[Прогон №15](https://github.com/andr1ch/ARPO_LAB1/actions/runs/44580795462) завершился успешно за 25 минут 2 секунды. Все шесть задач зелёные: `sanity_check`, `run_tests`, `build_game`, `mirror_repo`, `build_docker_image`, `deploy_to_pages`.
+
+![Успешный пайплайн ЛР №5](Screenshots/LR5/03-actions-success.png)
+
+В логе облачной сборки присутствует результат существующего метода из ЛР №1:
+
+```text
+[CI/CD] УСПЕХ! WebGL-билд успешно создан.
+[CI/CD] Время сборки: 679.22 сек. Размер: 23243195 байт.
+```
+
+Артефакт `WebGL-Build` скачан и проверен. В нём находятся `index.html`, загрузчик, каталоги `Build`, `StreamingAssets`, `TemplateData` и настоящие сжатые ресурсы игры:
+
+| Файл | Размер, байт | Проверка |
+|---|---:|---|
+| `WebGL.framework.js.unityweb` | 92 699 | Gzip, распаковка успешна |
+| `WebGL.wasm.unityweb` | 14 149 313 | Gzip, сигнатура WebAssembly корректна |
+| `WebGL.data.unityweb` | 8 932 380 | Gzip, распаковка успешна |
+
+GitHub Pages включён с источником `Deploy from a branch`, веткой `gh-pages` и каталогом `/`. Отдельный запуск `pages build and deployment` также завершился успешно. Адрес игры: [andr1ch.github.io/ARPO_LAB1](https://andr1ch.github.io/ARPO_LAB1/).
+
+![Включённый GitHub Pages и источник gh-pages](Screenshots/LR5/05-pages-settings.png)
+
+При повторной проверке 25.11.2026 игра на GitHub Pages загрузилась. Проверены движение стрелками, прыжок пробелом и сбор кристалла. В консоли нет ошибок, в том числе ошибок распаковки. Страница, загрузчик и три файла `.unityweb` возвращают HTTP 200; размеры файлов совпадают с облачным артефактом.
+
+![Работающая игра на GitHub Pages: прыжок и сбор кристалла](Screenshots/LR5/04-pages-game.png)
+
+Образ опубликован в `ghcr.io/andr1ch/platformer-game` с тегами `latest` и `1b2ef34d4e04e74eb5b052bc07965a051a28ca75`.
+
+25.11.2026 опубликованный образ скачан из GHCR по тегу SHA и запущен локально на `http://localhost:8080/`. Проверка `nginx -t` прошла. Страница, загрузчик и сжатые файлы внутри контейнера побайтово совпали с артефактом `WebGL-Build`. Для сжатых ответов подтверждены `Content-Encoding: gzip` и нужные MIME-типы; отсутствующий файл возвращает 404.
+
+Пример запуска опубликованной версии:
+
+```powershell
+docker run -d -p 8080:80 ghcr.io/andr1ch/platformer-game:latest
+```
 
 ## Контрольные вопросы
 

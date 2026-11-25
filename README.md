@@ -9,3 +9,11 @@
 | 5 | Облачная сборка WebGL, GitHub Pages и Docker с настоящей игрой | [ЛР №5](LR5.md) |
 
 ЛР №5: после тестов пайплайн собирает игру методом `BuildManager.BuildWebGL`, передаёт артефакт `WebGL-Build` в Docker и публикует в ветку `gh-pages`. Подробности и результаты проверки — в [отчёте ЛР №5](LR5.md).
+
+1. Для WebGL включены Gzip и Decompression Fallback.
+2. Облачная сборка запускается после успешных EditMode- и PlayMode-тестов.
+3. Одна и та же сборка публикуется в Docker-образ и GitHub Pages.
+
+[Играть в браузере](https://andr1ch.github.io/ARPO_LAB1/) · [Успешный пайплайн ЛР №5](https://github.com/andr1ch/ARPO_LAB1/actions/runs/44580795462)
+
+![Игра на GitHub Pages](Screenshots/LR5/04-pages-game.png)
